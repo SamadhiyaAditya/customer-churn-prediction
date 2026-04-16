@@ -1,198 +1,13 @@
-from groq import Groq
-import os
 import streamlit as st
 import pandas as pd
 import joblib
 import plotly.graph_objects as go
-import json
-from typing import TypedDict, List
-from langgraph.graph import StateGraph, END
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_text_splitters import CharacterTextSplitter
+from agent import AgentState, build_agent_graph
+from rag import build_rag_index
 
 # ---------------------------------------------------
-# Groq Setup
+# Helper
 # ---------------------------------------------------
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-# ---------------------------------------------------
-# RAG Knowledge Base
-# ---------------------------------------------------
-RETENTION_KNOWLEDGE = """
-Payment Delay Strategy: Customers with high payment delays benefit from flexible payment plans,
-auto-pay incentives, payment reminders, and grace period extensions. Offer 10-15% discount for
-enabling auto-pay. Send friendly reminders 3 days before due date.
-
-Support Calls Strategy: Customers making frequent support calls indicate product confusion or
-dissatisfaction. Assign dedicated account managers, provide proactive onboarding tutorials,
-create personalized FAQ documents, and schedule follow-up satisfaction calls.
-
-Low Tenure Strategy: New customers (under 6 months) are highest churn risk. Implement 30-60-90
-day onboarding journeys, provide welcome bonuses, assign onboarding specialists, and create
-milestone rewards for reaching 3, 6, and 12 month anniversaries.
-
-High Churn Risk General Strategy: For customers above 70% churn probability, immediate human
-intervention is required. Escalate to retention specialists, offer personalized discount
-(15-25%), conduct exit-intent surveys to understand core issues, and provide service upgrades
-at no extra cost for 3 months.
-
-Moderate Churn Risk Strategy: For customers between 40-70% churn probability, proactive
-engagement campaigns work best. Send personalized email campaigns, offer loyalty points,
-highlight new features relevant to their usage pattern, and invite them to beta programs.
-
-Contract Renewal Strategy: Monthly contract customers are 3x more likely to churn. Offer
-incentives to switch to annual contracts - typically 20% discount. Highlight long-term value
-and savings. Send renewal reminders 30 days in advance.
-
-Usage Frequency Strategy: Low usage frequency signals disengagement. Send re-engagement
-emails with use-case tutorials, offer personalized feature demos, and create gamification
-elements to encourage daily/weekly usage habits.
-
-Ethical Retention Practices: All retention strategies must respect customer autonomy. Never
-use manipulative dark patterns. Be transparent about pricing changes. Honor cancellation
-requests promptly while presenting alternatives respectfully.
-"""
-
-@st.cache_resource
-def build_rag_index():
-    splitter = CharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-    docs = splitter.create_documents([RETENTION_KNOWLEDGE])
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = FAISS.from_documents(docs, embeddings)
-    return vectorstore
-
-def retrieve_strategies(query: str, vectorstore, k: int = 3) -> str:
-    docs = vectorstore.similarity_search(query, k=k)
-    return "\n\n".join([d.page_content for d in docs])
-
-# ---------------------------------------------------
-# LangGraph State
-# ---------------------------------------------------
-class AgentState(TypedDict):
-    customer_data: dict
-    churn_probability: float
-    reasons: List[str]
-    retrieved_strategies: str
-    risk_summary: str
-    retention_recommendations: str
-    structured_report: dict
-    ethical_disclaimer: str
-
-# ---------------------------------------------------
-# LangGraph Nodes
-# ---------------------------------------------------
-def analyze_risk_node(state: AgentState) -> AgentState:
-    prob = state["churn_probability"]
-    data = state["customer_data"]
-    reasons = state["reasons"]
-    risk_level = "HIGH" if prob >= 0.7 else ("MODERATE" if prob >= 0.4 else "LOW")
-    state["risk_summary"] = (
-        f"Risk Level: {risk_level} ({prob*100:.1f}%)\n"
-        f"Tenure: {data.get('Tenure', ['N/A'])[0]} months | "
-        f"Support Calls: {data.get('Support Calls', ['N/A'])[0]} | "
-        f"Payment Delay: {data.get('Payment Delay', ['N/A'])[0]} days\n"
-        f"Issues: {', '.join(reasons) if reasons else 'None detected'}"
-    )
-    return state
-
-def retrieve_rag_node(state: AgentState, vectorstore) -> AgentState:
-    query = f"retention for: {', '.join(state['reasons'])} churn risk {state['churn_probability']*100:.0f}%"
-    state["retrieved_strategies"] = retrieve_strategies(query, vectorstore)
-    return state
-
-def generate_recommendations_node(state: AgentState) -> AgentState:
-    prompt = f"""
-You are an expert AI Customer Retention Strategist.
-
-CUSTOMER RISK PROFILE:
-{state['risk_summary']}
-
-RETRIEVED BEST PRACTICES:
-{state['retrieved_strategies']}
-
-Generate:
-1. Top 3 specific, concrete retention actions
-2. Priority order
-3. Expected outcome for each action
-
-Use clear bullet points. Be specific and actionable.
-"""
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": "You are a customer retention expert. Be concise and specific."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.5
-    )
-    state["retention_recommendations"] = response.choices[0].message.content
-    return state
-
-def generate_structured_report_node(state: AgentState) -> AgentState:
-    prompt = f"""
-Based on this analysis, return ONLY a valid JSON object (no markdown, no explanation):
-
-Risk Summary: {state['risk_summary']}
-Recommendations: {state['retention_recommendations']}
-
-{{
-  "risk_level": "HIGH/MODERATE/LOW",
-  "churn_probability_pct": <number>,
-  "top_risk_factors": ["factor1", "factor2"],
-  "immediate_actions": ["action1", "action2", "action3"],
-  "expected_outcomes": ["outcome1", "outcome2", "outcome3"],
-  "priority_score": <1-10>,
-  "escalate_to_human": true/false
-}}
-"""
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": "Return only valid JSON. No markdown fences, no explanation."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.2
-    )
-    raw = response.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
-    try:
-        state["structured_report"] = json.loads(raw)
-    except Exception:
-        state["structured_report"] = {
-            "risk_level": "UNKNOWN",
-            "churn_probability_pct": state["churn_probability"] * 100,
-            "top_risk_factors": state["reasons"],
-            "immediate_actions": ["Review customer profile manually"],
-            "expected_outcomes": ["Improved retention"],
-            "priority_score": 5,
-            "escalate_to_human": True
-        }
-    return state
-
-def add_disclaimer_node(state: AgentState) -> AgentState:
-    state["ethical_disclaimer"] = (
-        "This analysis is AI-generated and intended as decision support only. "
-        "All retention strategies must respect customer autonomy and data privacy regulations. "
-        "Human review is strongly recommended before executing high-impact interventions. "
-        "Predictions carry inherent uncertainty — use alongside human judgment."
-    )
-    return state
-
-def build_agent_graph(vectorstore):
-    workflow = StateGraph(AgentState)
-    workflow.add_node("analyze_risk", analyze_risk_node)
-    workflow.add_node("retrieve_rag", lambda s: retrieve_rag_node(s, vectorstore))
-    workflow.add_node("generate_recommendations", generate_recommendations_node)
-    workflow.add_node("structured_report", generate_structured_report_node)
-    workflow.add_node("add_disclaimer", add_disclaimer_node)
-    workflow.set_entry_point("analyze_risk")
-    workflow.add_edge("analyze_risk", "retrieve_rag")
-    workflow.add_edge("retrieve_rag", "generate_recommendations")
-    workflow.add_edge("generate_recommendations", "structured_report")
-    workflow.add_edge("structured_report", "add_disclaimer")
-    workflow.add_edge("add_disclaimer", END)
-    return workflow.compile()
-
 def generate_reason(input_data):
     reasons = []
     if input_data["Payment Delay"][0] > 20:
@@ -221,21 +36,17 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; }
-
 html, body, [class*="css"] {
     font-family: 'DM Mono', monospace;
     background-color: #040d1a !important;
     color: #c8d8f0 !important;
 }
-
 #MainMenu, footer, header { visibility: hidden; }
 .block-container {
     padding: 2rem 3rem 4rem 3rem !important;
     max-width: 1400px !important;
 }
-
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #060f20 0%, #040d1a 100%) !important;
     border-right: 1px solid #0d2444 !important;
@@ -253,7 +64,6 @@ html, body, [class*="css"] {
     border: 1px solid #0d2444 !important;
     color: #c8d8f0 !important;
 }
-
 .hero-wrap {
     background: linear-gradient(135deg, #040d1a 0%, #071628 50%, #040d1a 100%);
     border: 1px solid #0d2444;
@@ -310,7 +120,6 @@ html, body, [class*="css"] {
     margin-top: 1.2rem;
     margin-right: 0.5rem;
 }
-
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -351,7 +160,6 @@ html, body, [class*="css"] {
     color: #2a5a8a;
     margin-top: 0.35rem;
 }
-
 .section-head {
     font-family: 'Syne', sans-serif;
     font-size: 1rem;
@@ -369,7 +177,6 @@ html, body, [class*="css"] {
     height: 1px;
     background: linear-gradient(90deg, #0d2444, transparent);
 }
-
 .risk-badge {
     display: inline-flex;
     align-items: center;
@@ -384,7 +191,6 @@ html, body, [class*="css"] {
 .risk-high { background: rgba(255,59,59,0.12); border: 1px solid rgba(255,59,59,0.35); color: #ff6b6b; }
 .risk-moderate { background: rgba(255,190,50,0.12); border: 1px solid rgba(255,190,50,0.35); color: #ffd166; }
 .risk-low { background: rgba(0,200,130,0.12); border: 1px solid rgba(0,200,130,0.35); color: #00e59b; }
-
 .info-card {
     background: #060f20;
     border: 1px solid #0d2444;
@@ -400,7 +206,6 @@ html, body, [class*="css"] {
     color: #0078ff;
     margin-bottom: 0.8rem;
 }
-
 .workflow-wrap {
     display: flex;
     align-items: center;
@@ -422,7 +227,6 @@ html, body, [class*="css"] {
 .workflow-step .step-num { font-family: 'DM Mono', monospace; font-size: 0.58rem; color: #0078ff; letter-spacing: 0.15em; text-transform: uppercase; }
 .workflow-step .step-name { font-family: 'Syne', sans-serif; font-size: 0.76rem; font-weight: 600; color: #c8d8f0; margin-top: 0.3rem; }
 .workflow-arrow { color: #0d2444; font-size: 1.4rem; padding: 0 0.3rem; flex-shrink: 0; }
-
 .action-item {
     display: flex;
     align-items: flex-start;
@@ -438,7 +242,6 @@ html, body, [class*="css"] {
     line-height: 1.6;
 }
 .action-num { font-family: 'Syne', sans-serif; font-weight: 700; color: #0078ff; font-size: 0.9rem; flex-shrink: 0; margin-top: 0.05rem; }
-
 .risk-pill {
     display: inline-flex;
     align-items: center;
@@ -451,7 +254,6 @@ html, body, [class*="css"] {
     color: #ff8070;
     margin: 0.25rem;
 }
-
 [data-testid="stTabs"] button {
     font-family: 'DM Mono', monospace !important;
     font-size: 0.72rem !important;
@@ -465,7 +267,6 @@ html, body, [class*="css"] {
     border-bottom: 2px solid #0078ff !important;
     background: transparent !important;
 }
-
 .stButton > button {
     width: 100% !important;
     background: linear-gradient(135deg, #0050c8 0%, #0078ff 100%) !important;
@@ -480,19 +281,14 @@ html, body, [class*="css"] {
     text-transform: uppercase !important;
     box-shadow: 0 4px 24px rgba(0,120,255,0.3) !important;
 }
-
 .sidebar-logo { font-family: 'Syne', sans-serif; font-size: 1.25rem; font-weight: 800; color: #e8f4ff; margin-bottom: 0.3rem; }
 .sidebar-tagline { font-size: 0.63rem; color: #2a5a8a; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 1.5rem; }
-
 hr { border-color: #0d2444 !important; }
-
 [data-testid="stMetric"] { background: #060f20; border: 1px solid #0d2444; border-radius: 10px; padding: 1rem 1.2rem; }
 [data-testid="stMetricLabel"] { font-family: 'DM Mono', monospace !important; font-size: 0.62rem !important; letter-spacing: 0.12em !important; text-transform: uppercase !important; color: #2a5a8a !important; }
 [data-testid="stMetricValue"] { font-family: 'Syne', sans-serif !important; font-weight: 700 !important; color: #e8f4ff !important; }
-
 [data-testid="stExpander"] { background: #060f20 !important; border: 1px solid #0d2444 !important; border-radius: 10px !important; }
 [data-testid="stExpander"] summary { font-family: 'DM Mono', monospace !important; font-size: 0.73rem !important; color: #4a6a8a !important; letter-spacing: 0.08em !important; }
-
 .escalate-banner {
     background: rgba(255,59,59,0.08);
     border: 1px solid rgba(255,59,59,0.25);
@@ -507,7 +303,6 @@ hr { border-color: #0d2444 !important; }
     font-size: 0.88rem;
     margin: 1rem 0;
 }
-
 .disclaimer-box {
     background: rgba(255,190,50,0.05);
     border: 1px solid rgba(255,190,50,0.2);
@@ -519,7 +314,6 @@ hr { border-color: #0d2444 !important; }
     line-height: 1.8;
     margin-top: 1rem;
 }
-
 [data-testid="stNumberInput"] input {
     background: #0a1f3d !important;
     border: 1px solid #0d2444 !important;
@@ -666,7 +460,6 @@ if predict_button:
                 st.markdown("<span style='color:#00e59b;font-size:0.85rem;'>✓ No critical risk factors detected</span>", unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            # Radar
             categories = ['Payment', 'Support', 'Engagement', 'Loyalty', 'Spend']
             values = [
                 min(payment_delay / 60, 1),
@@ -796,7 +589,7 @@ if predict_button:
         </div>
         """, unsafe_allow_html=True)
 
-        with st.expander("📚 Retrieved Knowledge Base Context (FAISS RAG)"):
+        with st.expander("📚 Retrieved Knowledge Base Context — Sources retrieved via FAISS RAG"):
             st.markdown(f"""<div style='font-family:DM Mono,monospace;font-size:0.74rem;color:#4a6a8a;line-height:1.9;white-space:pre-wrap;'>{final_state['retrieved_strategies']}</div>""", unsafe_allow_html=True)
 
         with st.expander("🎯 Agent Risk Summary"):
