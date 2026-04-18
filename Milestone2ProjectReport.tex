@@ -1,0 +1,701 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{tabularx}
+
+% ── Colors ────────────────────────────────────────────────────────────────
+\definecolor{headerblue}{HTML}{2C3E6B}
+\definecolor{lightrow}{HTML}{D6E4F0}
+\definecolor{darkheader}{HTML}{2C3E6B}
+\definecolor{sectionbg}{HTML}{2C3E6B}
+
+% ── Page Style ────────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\small Customer Churn Prediction \& Agentic Retention Strategy~~|~~Milestone 2 Project Report}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% ── Section Formatting ───────────────────────────────────────────────────
+\titleformat{\section}
+  {\Large\bfseries\color{white}}
+  {\thesection.}{0.5em}{}
+  [{\titlerule[0pt]}]
+
+\titleformat{\subsection}
+  {\large\bfseries\color{headerblue}}
+  {\thesubsection}{1em}{}
+  [\vspace{0.3em}{\color{headerblue}\titlerule[0.5pt]}]
+
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{headerblue}}
+  {\thesubsubsection}{1em}{}
+
+% Custom section command with colored background
+\newcommand{\coloredsection}[1]{%
+  \section*{\colorbox{sectionbg}{\parbox{\dimexpr\textwidth-2\fboxsep}{#1}}}%
+  \addcontentsline{toc}{section}{#1}%
+}
+
+\newcommand{\numberedsection}[2]{%
+  \refstepcounter{section}%
+  \section*{\colorbox{sectionbg}{\parbox{\dimexpr\textwidth-2\fboxsep}{\thesection.~#2}}}%
+  \addcontentsline{toc}{section}{\thesection\quad #2}%
+}
+
+% ── Hyperlink Styling ────────────────────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=green!50!black,
+    urlcolor=blue!60!black
+}
+
+% ── Code Listing Style ───────────────────────────────────────────────────
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue!70!black}\bfseries,
+    commentstyle=\color{green!50!black}\itshape,
+    stringstyle=\color{red!60!black},
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    tabsize=4
+}
+
+\onehalfspacing
+
+% ══════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+% ── Title Page ────────────────────────────────────────────────────────────
+\begin{titlepage}
+    \centering
+    \vspace*{3cm}
+
+    {\Huge\bfseries\color{headerblue} PROJECT REPORT}
+
+    \vspace{1cm}
+
+    {\LARGE\bfseries Customer Churn Prediction \&\\Agentic Retention Strategy}
+
+    \vspace{0.5cm}
+
+    {\large\textit{From Predictive Analytics to Intelligent Intervention}}
+
+    \vspace{2cm}
+
+    \rule{\textwidth}{0.5pt}
+
+    \vspace{1cm}
+
+    \begin{tabular}{@{} l l @{}}
+    \textbf{\color{headerblue}Milestone}           & Milestone 2 --- Agentic AI \& RAG System \\[0.5em]
+    \textbf{\color{headerblue}Course}              & GenAI \& Agentic AI \\[0.5em]
+    \textbf{\color{headerblue}Deployment}          & Hugging Face Spaces (Live) \\[0.5em]
+    \textbf{\color{headerblue}Core Technologies}   & Groq API $\cdot$ LangGraph $\cdot$ FAISS $\cdot$ HuggingFace \\
+                                                    & Embeddings $\cdot$ Streamlit \\
+    \end{tabular}
+    \vspace{1.5cm}
+
+    \rule{\textwidth}{0.5pt}
+    \vspace{1.5cm}
+
+    \begin{tabular}{c}
+        Saksham Miglani - 2401010401 \\
+        Kavya Mukhija - 2401010219\\
+        Pratyush Parida - 2401010351 \\
+        Aditya Samadhiya - 2401010037
+    \end{tabular}
+    \vfill
+
+    {\small Customer Churn Prediction \& Agentic Retention Strategy~~|~~Milestone 2 Project Report}
+
+\end{titlepage}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                              1. ABSTRACT
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{abstract}{Abstract}
+
+This report presents the complete Milestone 2 implementation of Project 5 --- Customer Churn Prediction \& Agentic Retention Strategy. Building upon the classical machine learning baseline established in Milestone 1, this phase introduces a fully agentic AI system capable of autonomous multi-step reasoning for customer retention strategy generation.
+
+The system integrates a Retrieval-Augmented Generation (RAG) pipeline powered by FAISS vector search and HuggingFace sentence-transformer embeddings, combined with LLM-based reasoning via the Groq API (LLaMA 3.3 70B), and an autonomous 5-node agentic workflow orchestrated through LangGraph. The agent autonomously analyzes customer churn risk, retrieves relevant retention best practices, generates structured intervention strategies, and compiles a final downloadable report --- all without manual intervention.
+
+The complete system is deployed as a live application on Hugging Face Spaces, providing a professional, dark-themed web interface (branded ChurnGuard AI) for real-world customer retention analysis.
+
+% ══════════════════════════════════════════════════════════════════════════
+%                         2. PROJECT OVERVIEW
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{overview}{Project Overview}
+
+\subsection {Motivation \& Problem Statement}
+
+Customer churn is one of the most costly challenges in subscription-based businesses. While Milestone 1 demonstrated that classical ML could predict churn probability using behavioral signals, it lacked the ability to reason about why a customer is at risk and what specific actions should be taken to retain them. A binary classification model cannot serve as an actionable retention tool on its own.
+
+Milestone 2 addresses these gaps by introducing three critical capabilities:
+\begin{itemize}
+    \item \textbf{Contextual retrieval} --- finding relevant retention strategies from a curated knowledge base using semantic search over a FAISS vector store
+    \item \textbf{LLM-based reasoning} --- generating specific, human-readable retention recommendations grounded in retrieved best practices
+    \item \textbf{Agentic autonomy} --- a 5-node LangGraph agent that plans, executes, and produces a final structured JSON report without human intervention
+\end{itemize}
+
+\subsection{Evolution from Milestone 1 to Milestone 2}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}}p{3.5cm} p{4.5cm} p{5.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Capability} & \textbf{\color{white}Milestone 1} & \textbf{\color{white}Milestone 2} \\
+\textbf{Risk Prediction} & Logistic Regression / Decision Tree & ML model + LLM reasoning via Groq API \\
+\rowcolor{white}
+\textbf{Contextual Understanding} & None --- tabular features only & RAG with FAISS + HuggingFace embeddings \\
+\textbf{Explainability} & Churn probability only & Natural language strategy per risk factor \\
+\rowcolor{white}
+\textbf{Autonomy} & None --- single prediction step & 5-node agentic loop via LangGraph \\
+\textbf{Architecture} & Classical ML pipeline & RAG + Agent + LLM + Structured Output \\
+\rowcolor{white}
+\textbf{Output} & Churn probability + gauge chart & Structured JSON retention report + action plan \\
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                        3. SYSTEM ARCHITECTURE
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{architecture}{System Architecture}
+
+\subsection{High-Level Pipeline}
+
+The Milestone 2 system follows a six-stage pipeline from raw customer input to structured retention report:
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}}p{2.8cm} p{4cm} p{6.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Stage} & \textbf{\color{white}Module} & \textbf{\color{white}Description} \\
+\textbf{1. Input} & app.py (Sidebar) & User enters 10 customer features via Streamlit sidebar sliders/dropdowns \\
+\rowcolor{white}
+\textbf{2. ML Prediction} & churn\_model.pkl & Logistic Regression pipeline predicts churn probability and binary label \\
+\textbf{3. Reason Extraction} & generate\_reason() & Rule-based extraction of detected risk factors (payment delay, support calls, tenure, usage) \\
+\rowcolor{white}
+\textbf{4. RAG Retrieval} & rag/retriever.py + rag/ingest.py & FAISS semantic search retrieves top-3 relevant retention strategies \\
+\textbf{5. Agentic Workflow} & agent/graph.py & LangGraph 5-node agent runs risk analysis $\rightarrow$ RAG $\rightarrow$ LLM $\rightarrow$ report $\rightarrow$ disclaimer \\
+\rowcolor{white}
+\textbf{6. Structured Output} & agent/nodes.py & Groq LLaMA 3.3 70B generates structured JSON report + LLM strategy detail \\
+\end{tabular}
+\end{table}
+
+\subsection{Architecture Diagram}
+
+\begin{figure}[H]
+\centering
+\begin{lstlisting}[language={}, basicstyle=\ttfamily\small, frame=single, backgroundcolor=\color{gray!5}, numbers=none]
+Input (Customer Features via Sidebar)
+    |
+ML Prediction -> churn_model.pkl (Logistic Regression Pipeline)
+    |
+Risk Factor Extraction -> generate_reason()
+    |
+RAG Retrieval -> rag/retriever.py -> FAISS Index (all-MiniLM-L6-v2)
+    |
+LangGraph Agent (5 nodes) -> agent/graph.py
+    |
+Groq API (LLaMA 3.3 70B) -> LLM Strategy + Structured JSON Report
+    |
+Streamlit UI -> ChurnGuard AI Dashboard (Hugging Face Spaces)
+\end{lstlisting}
+\end{figure}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                4. MILESTONE 1 RECAP — CLASSICAL ML BASELINE
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{milestone1}{Milestone 1 Recap --- Classical ML Baseline}
+
+Milestone 1 established the predictive foundation of the system using classical NLP and supervised machine learning. Its outputs serve as the baseline against which Milestone 2 improvements are measured.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}\bfseries}p{4cm} p{9cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Component} & \textbf{\color{white}Details} \\
+Dataset & customer\_churn\_dataset-testing-master.csv --- 64,374 rows, 12 columns, zero missing values \\
+\rowcolor{white}
+Target Variable & Churn (0 = stayed, 1 = churned) \\
+Preprocessing & Dropped CustomerID, StandardScaler for numeric features, OneHotEncoder for categorical \\
+\rowcolor{white}
+Numeric Features (7) & Age, Tenure, Usage Frequency, Support Calls, Payment Delay, Total Spend, Last Interaction \\
+Categorical Features (3) & Gender, Subscription Type, Contract Length \\
+\rowcolor{white}
+Train/Test Split & 80/20 split (random\_state=42) \\
+Model 1 & Logistic Regression --- Accuracy: 83.17\%, Precision: 81.63\%, Recall: 83.06\%, F1: 82.34\% \\
+\rowcolor{white}
+Model 2 & Decision Tree (max\_depth=5) --- Accuracy: 95.97\%, Recall: 98.24\% \\
+Deployed Model & Logistic Regression (smoother probability estimates for gauge chart visualization) \\
+\rowcolor{white}
+Serialized Artifact & churn\_model.pkl (full pipeline: ColumnTransformer + LogisticRegression) \\
+Limitation & No contextual reasoning, no strategy generation, no explanation output \\
+\end{tabular}
+\end{table}
+
+\subsection{Feature Importance (from Decision Tree)}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} >{\columncolor{lightrow}}c p{5cm} c @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Rank} & \textbf{\color{white}Feature} & \textbf{\color{white}Importance Score} \\
+\textbf{1} & Payment Delay & 47.87\% \\
+\rowcolor{white}
+\textbf{2} & Support Calls & 14.40\% \\
+\textbf{3} & Tenure & 9.91\% \\
+\rowcolor{white}
+\textbf{4} & Usage Frequency & 9.10\% \\
+\textbf{5} & Gender (Female) & 8.28\% \\
+\rowcolor{white}
+\textbf{6} & Other features & <5\% combined \\
+\end{tabular}
+\end{table}
+
+\subsection{Confusion Matrix (Logistic Regression)}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} >{\columncolor{lightrow}\bfseries}p{4cm} c c @{}}
+\rowcolor{darkheader}
+ & \textbf{\color{white}Predicted: Stayed (0)} & \textbf{\color{white}Predicted: Churned (1)} \\
+Actual: Stayed (0) & 5,656 & 1,137 \\
+\rowcolor{white}
+Actual: Churned (1) & 1,030 & 5,052 \\
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                    5. MILESTONE 2 — RAG PIPELINE
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{rag}{Milestone 2 --- RAG Pipeline}
+
+\subsection{Overview}
+
+Retrieval-Augmented Generation (RAG) enhances LLM reasoning by grounding it in a curated knowledge base of retention strategies. Instead of relying on the LLM's parametric knowledge alone, RAG retrieves semantically relevant strategies at inference time and injects them as context into the prompt. This reduces hallucination and ensures recommendations are rooted in domain-specific best practices.
+
+\subsection{Retention Knowledge Base}
+
+The knowledge base is defined in rag/ingest.py as a curated text corpus covering eight key retention domains:
+\begin{itemize}
+    \item \textbf{Payment Delay Strategy} --- flexible payment plans, auto-pay incentives, payment reminders
+    \item \textbf{Support Calls Strategy} --- dedicated account managers, proactive onboarding, personalized FAQs
+    \item \textbf{Low Tenure Strategy} --- 30-60-90 day onboarding journeys, welcome bonuses, milestone rewards
+    \item \textbf{High Churn Risk Strategy} --- immediate human escalation, 15-25\% personalized discount offers
+    \item \textbf{Moderate Churn Risk Strategy} --- proactive email campaigns, loyalty points, beta program invites
+    \item \textbf{Contract Renewal Strategy} --- incentives to switch to annual contracts, 20\% discount offers
+    \item \textbf{Usage Frequency Strategy} --- re-engagement emails, gamification, personalized feature demos
+    \item \textbf{Ethical Retention Practices} --- customer autonomy, no dark patterns, transparent pricing
+\end{itemize}
+
+\subsection{Embedding \& Indexing}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}\bfseries}p{3cm} p{4.5cm} p{5.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Component} & \textbf{\color{white}Choice} & \textbf{\color{white}Justification} \\
+Embedding Model & all-MiniLM-L6-v2 (HuggingFace) & Semantic similarity over keyword matching; free-tier compatible; 384-dim dense vectors \\
+\rowcolor{white}
+Vector Store & FAISS (Facebook AI Similarity Search) & Fast approximate nearest-neighbor search; in-memory; no external database required \\
+Text Splitter & CharacterTextSplitter (chunk\_size=300, overlap=50) & Balanced chunk size for retention strategy paragraphs \\
+\rowcolor{white}
+Cache & Streamlit @st.cache\_resource & Index built once per session; avoids redundant embedding computation \\
+\end{tabular}
+\end{table}
+
+\subsection{Retrieval Process}
+
+At inference time, the retrieval pipeline in rag/retriever.py performs the following steps:
+\begin{itemize}
+    \item A query string is constructed from the customer's detected risk factors and churn probability percentage
+    \item The query is embedded using the same all-MiniLM-L6-v2 model used during indexing
+    \item The query embedding is compared against all stored embeddings using cosine similarity in FAISS
+    \item Top-3 most similar strategy chunks are retrieved along with their full text
+    \item Retrieved strategies are concatenated and passed to the LLM reasoning node as grounding context
+\end{itemize}
+
+\begin{lstlisting}[language=Python, numbers=none]
+Query: f"retention for: {', '.join(reasons)} churn risk
+    {probability*100:.0f}%"
+\end{lstlisting}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                 6. LLM-BASED RETENTION REASONING
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{llm}{LLM-Based Retention Reasoning}
+
+\subsection{Groq API Integration}
+
+The LLM reasoning layer is implemented in agent/nodes.py and uses the Groq API for fast, high-throughput inference. Groq's LPU (Language Processing Unit) architecture provides significantly lower latency compared to standard GPU inference, making it suitable for real-time customer analysis in the Streamlit application.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}\bfseries}p{4.5cm} p{8.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Parameter} & \textbf{\color{white}Configuration} \\
+API Provider & Groq Cloud API \\
+\rowcolor{white}
+Model & llama-3.3-70b-versatile \\
+Authentication & GROQ\_API\_KEY via environment variable \\
+\rowcolor{white}
+Temperature (Strategy) & 0.5 --- balanced creativity and consistency \\
+Temperature (Report) & 0.2 --- high determinism for structured JSON output \\
+\rowcolor{white}
+Task & Clause-level retention strategy generation + structured JSON report \\
+\end{tabular}
+\end{table}
+
+\subsection{Prompt Engineering}
+
+The system uses two distinct prompts to separate concerns:
+
+\vspace{0.5cm}
+\noindent\textbf{\color{headerblue}Recommendations Prompt}
+
+Instructs the LLM to act as a customer retention expert and generate exactly three specific, prioritized retention actions with expected outcomes for each, grounded in the retrieved FAISS strategies. Temperature 0.5 allows some creative variation while remaining focused.
+
+\vspace{0.5cm}
+\noindent\textbf{\color{headerblue}Structured Report Prompt}
+
+Instructs the LLM to output only valid JSON conforming to a strict schema --- no markdown fences, no explanation text. The schema fields are: risk\_level (HIGH/MODERATE/LOW), churn\_probability\_pct, top\_risk\_factors (list), immediate\_actions (list of 3), expected\_outcomes (list of 3), priority\_score (1-10), and escalate\_to\_human (boolean). Temperature 0.2 ensures deterministic, parseable output.
+
+\subsection{Anti-Hallucination Design}
+
+\begin{itemize}
+    \item All LLM prompts include the retrieved FAISS context, anchoring recommendations to the knowledge base
+    \item The structured report prompt uses strict JSON schema enforcement to prevent free-text drift
+    \item A try/except fallback handles JSON parse failures, ensuring the app never crashes on malformed LLM output
+    \item The ethical disclaimer node explicitly reminds that all recommendations require human review
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                  7. AGENTIC WORKFLOW — LANGGRAPH
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{agentic}{Agentic Workflow --- LangGraph}
+
+\subsection{Why Agentic AI?}
+
+Unlike a simple RAG pipeline, an agentic system maintains shared state, makes conditional decisions, and handles errors gracefully. The key advantages are:
+\begin{itemize}
+    \item \textbf{Iterative Reasoning}: Unlike a linear RAG pipeline, an agent can ``think'' whether the retrieved context is sufficient.
+    \item \textbf{Error Recovery}: If the LLM generates a poor strategy, the workflow can loop back to refine it.
+    \item \textbf{Conditional Logic}: Based on churn probability, different paths are taken (e.g., high-risk segment vs.\ low-risk).
+\end{itemize}
+
+\subsection{LangGraph Implementation}
+
+The agentic workflow is implemented in agent/graph.py using LangGraph --- a framework for building stateful, multi-step AI workflows as directed acyclic graphs. Each node represents a distinct reasoning step; edges represent transitions between steps.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}}c p{4cm} p{7.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Node} & \textbf{\color{white}Function} & \textbf{\color{white}Description} \\
+\textbf{Node 01} & analyze\_risk\_node & Computes risk level (HIGH/MODERATE/LOW) from churn probability; constructs a structured risk summary string including tenure, support calls, payment delay, and detected issues \\
+\rowcolor{white}
+\textbf{Node 02} & retrieve\_rag\_node & Calls rag/retriever.py; constructs a query from detected risk reasons and churn percentage; retrieves top-3 FAISS strategy chunks \\
+\textbf{Node 03} & generate\_recommendations\_node & Calls Groq API (LLaMA 3.3 70B, temp=0.5); generates 3 specific prioritized retention actions grounded in retrieved strategies \\
+\rowcolor{white}
+\textbf{Node 04} & generate\_structured\_report\_node & Calls Groq API (temp=0.2); generates strict JSON structured report; includes try/except fallback for parse failures \\
+\textbf{Node 05} & add\_disclaimer\_node & Appends a hardcoded ethical AI disclaimer covering customer autonomy, data privacy, uncertainty, and human review requirements \\
+\end{tabular}
+\end{table}
+
+\subsection{Agent Execution Flow}
+
+\begin{lstlisting}[language={}, basicstyle=\ttfamily\small, frame=single, backgroundcolor=\color{gray!5}, numbers=none]
+START
+    |
+analyze_risk  ->  Classify probability into HIGH/MODERATE/LOW; build risk
+    summary
+    |
+retrieve_rag  ->  FAISS semantic search; top-3 strategy chunks injected
+    into state
+    |
+generate_recommendations  ->  Groq LLM produces 3 actionable retention
+    strategies
+    |
+structured_report  ->  Groq LLM produces strict JSON report (priority,
+    actions, outcomes)
+    |
+add_disclaimer  ->  Ethical AI & compliance disclaimer appended to state
+    |
+END  ->  Structured retention report rendered in Streamlit Tab 3
+\end{lstlisting}
+
+\subsection{Shared State Design (AgentState)}
+
+LangGraph maintains a shared TypedDict state object across all nodes. This state is passed by reference and mutated at each step:
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} >{\columncolor{lightrow}\ttfamily}p{4.5cm} c p{6.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}State Field} & \textbf{\color{white}Type} & \textbf{\color{white}Purpose} \\
+\textnormal{customer\_data} & dict & Raw customer feature DataFrame as dict \\
+\rowcolor{white}
+\textnormal{churn\_probability} & float & ML model probability score (0.0--1.0) \\
+\textnormal{reasons} & List[str] & Detected risk factors from rule-based extraction \\
+\rowcolor{white}
+\textnormal{retrieved\_strategies} & str & Concatenated FAISS top-3 retrieval results \\
+\textnormal{risk\_summary} & str & Structured risk profile built in analyze\_risk node \\
+\rowcolor{white}
+\textnormal{retention\_recommendations} & str & LLM-generated strategy text (temp=0.5) \\
+\textnormal{structured\_report} & dict & Parsed JSON report from structured\_report node \\
+\rowcolor{white}
+\textnormal{ethical\_disclaimer} & str & Hardcoded ethical AI compliance statement \\
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                     8. REPOSITORY STRUCTURE
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{repo}{Repository Structure}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{} >{\columncolor{lightrow}\ttfamily}p{4.5cm} p{9cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Path} & \textbf{\color{white}Description} \\
+\textnormal{app.py} & Main Streamlit application --- ChurnGuard AI UI, sidebar inputs, tab rendering, agent invocation \\
+\rowcolor{white}
+\textnormal{app\_old\_milestone1.py} & Milestone 1 Streamlit app (preserved for comparison) \\
+\textnormal{requirements.txt} & Python dependency list \\
+\rowcolor{white}
+\textnormal{README.md} & Project documentation and setup instructions \\
+\textnormal{churn\_model.pkl} & Serialized Logistic Regression pipeline (root, for deployment) \\
+\rowcolor{white}
+\textnormal{agent/\_\_init\_\_.py} & Package init --- exports AgentState and build\_agent\_graph \\
+\textnormal{agent/graph.py} & LangGraph workflow --- 5-node graph construction and compilation \\
+\rowcolor{white}
+\textnormal{agent/nodes.py} & Node function implementations --- Groq API calls, risk analysis, disclaimer \\
+\textnormal{agent/prompts.py} & System and user prompt templates for recommendations and structured report \\
+\rowcolor{white}
+\textnormal{agent/state.py} & AgentState TypedDict --- shared state schema across all nodes \\
+\textnormal{rag/\_\_init\_\_.py} & Package init --- exports build\_rag\_index \\
+\rowcolor{white}
+\textnormal{rag/ingest.py} & Knowledge base definition, text splitting, HuggingFace embedding, FAISS index builder \\
+\textnormal{rag/retriever.py} & FAISS similarity\_search wrapper --- top-k retrieval function \\
+\rowcolor{white}
+\textnormal{Data/} & customer\_churn\_dataset-testing-master.csv (64,374 rows) \\
+\textnormal{Model/churn\_model.pkl} & Serialized model (archive copy) \\
+\rowcolor{white}
+\textnormal{Notebook/GenAi-...} & Training, evaluation, and feature importance analysis notebook \\
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                      9. TECHNOLOGY STACK
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{techstack}{Technology Stack}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}\bfseries}p{3.5cm} p{4.5cm} p{5.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Category} & \textbf{\color{white}Technology} & \textbf{\color{white}Role} \\
+LLM Provider & Groq API (llama-3.3-70b-versatile) & Fast LLM inference for retention strategy generation and JSON report \\
+\rowcolor{white}
+Agentic Framework & LangGraph & Stateful 5-node agent workflow orchestration \\
+Orchestration Library & LangChain & Prompt templates, text splitters, document loaders \\
+\rowcolor{white}
+Embeddings & HuggingFace all-MiniLM-L6-v2 & 384-dimensional semantic embeddings for retention strategy retrieval \\
+Vector Store & FAISS (langchain\_community) & In-memory approximate nearest-neighbor search for RAG \\
+\rowcolor{white}
+ML Pipeline & scikit-learn 1.6.1 & Milestone 1 baseline --- ColumnTransformer + LogisticRegression \\
+Data Handling & pandas, NumPy & Data manipulation, feature engineering, train/test split \\
+\rowcolor{white}
+Web Interface & Streamlit & Interactive frontend with tabs, sidebar, CSS theming \\
+Visualization & Plotly & Gauge chart (churn probability), radar chart (risk dimensions), bar chart (metrics) \\
+\rowcolor{white}
+Deployment & Hugging Face Spaces & Public cloud hosting of the live Streamlit application \\
+Training Environment & Google Colab & Notebook-based model training and evaluation \\
+\rowcolor{white}
+Model Serialization & joblib & Saves and loads the full sklearn pipeline \\
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                 10. USER INTERFACE & DEPLOYMENT
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{ui}{User Interface \& Deployment}
+
+\subsection{ChurnGuard AI --- Streamlit Application}
+
+The complete system is exposed through a custom-themed Streamlit web application (app.py) branded as ChurnGuard AI. The UI uses a dark, professional design with Google Fonts (Syne + DM Mono), custom CSS animations, and a fully responsive layout. It provides a complete workflow from customer profile input to structured agent report.
+
+\subsection{UI Features}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}\bfseries}p{3.5cm} p{10cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Feature} & \textbf{\color{white}Description} \\
+Sidebar Inputs & 10 customer features: 6 sliders (Age, Tenure, Usage, Support Calls, Payment Delay, Last Interaction), 1 number input (Total Spend), 3 dropdowns (Gender, Subscription, Contract) \\
+\rowcolor{white}
+Hero Section & Branded header with powered-by badges (LangGraph $\cdot$ FAISS RAG $\cdot$ Groq LLM) \\
+Stat Cards Grid & 4-card dashboard showing churn probability, risk level, detected risk factor count, and tenure \\
+\rowcolor{white}
+Tab 1: Risk Analysis & Gauge chart (churn probability), risk badge, risk factor pills, radar chart (5 risk dimensions) \\
+Tab 2: Customer Profile & Feature summary DataFrame, horizontal bar chart (behavioral metrics), metric tiles (spend, tenure, age) \\
+\rowcolor{white}
+Tab 3: AI Agent Report & LangGraph pipeline visualization, structured JSON report display, action plan cards, LLM strategy detail, RAG sources expander, ethical disclaimer \\
+Escalation Banner & Red alert banner triggered when escalate\_to\_human=true in structured report \\
+\rowcolor{white}
+Dark Theme & Full custom CSS --- dark navy background (\#040d1a), blue accent (\#0078ff), monospace DM Mono font \\
+\end{tabular}
+\end{table}
+
+\subsection{Deployment}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{} >{\columncolor{lightrow}\bfseries}p{4cm} p{9.5cm} @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Parameter} & \textbf{\color{white}Details} \\
+Platform & Hugging Face Spaces \\
+\rowcolor{white}
+Live URL & \url{https://offxkavya-customer-churn-prediction.hf.space/} \\
+SDK Detection & Hugging Face auto-detects Streamlit SDK from requirements.txt \\
+\rowcolor{white}
+Secrets Management & GROQ\_API\_KEY stored as Hugging Face Space secret (not in repository) \\
+Model File & churn\_model.pkl committed to repository root for direct loading \\
+\rowcolor{white}
+Stability & Groq API error handling with graceful JSON fallback on parse failures \\
+\end{tabular}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════════
+%              11. EVALUATION AGAINST RUBRIC CRITERIA
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{rubric}{Evaluation Against Rubric Criteria}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.4}
+\small
+\begin{tabular}{@{} >{\columncolor{lightrow}}p{2cm} p{3cm} c p{5.5cm} c @{}}
+\rowcolor{darkheader}
+\textbf{\color{white}Phase} & \textbf{\color{white}Criterion} & \textbf{\color{white}Weight} & \textbf{\color{white}Implementation} & \textbf{\color{white}Status} \\
+\textbf{Milestone 1} & ML Techniques & 25\% & Logistic Regression + Decision Tree with full sklearn pipeline & Fully Met \\
+\rowcolor{white}
+\textbf{Milestone 1} & Feature Engineering & 25\% & StandardScaler + OneHotEncoder via ColumnTransformer; 10 features & Fully Met \\
+\textbf{Milestone 1} & Evaluation Metrics & 25\% & Accuracy, Precision, Recall, F1, Confusion Matrix reported & Fully Met \\
+\rowcolor{white}
+\textbf{Milestone 1} & UI \& Code Quality & 25\% & Streamlit app with Plotly gauge + bar chart; modular structure & Fully Met \\
+\textbf{Milestone 2} & Retention Strategy Reasoning & 25\% & Groq LLaMA 3.3 70B generates 3 specific prioritized actions per customer & Fully Met \\
+\rowcolor{white}
+\textbf{Milestone 2} & RAG Implementation & 25\% & FAISS + all-MiniLM-L6-v2 + LangChain CharacterTextSplitter; top-3 retrieval & Fully Met \\
+\textbf{Milestone 2} & Structured Output & 25\% & JSON schema: risk\_level, actions, outcomes, priority\_score, escalate\_to\_human & Fully Met \\
+\rowcolor{white}
+\textbf{Milestone 2} & Ethical AI \& Deployment & 25\% & Dedicated disclaimer node + business disclaimer; live on Hugging Face Spaces & Fully Met \\
+\end{tabular}
+\end{table}
+
+\subsection{GenAI \& Agentic AI Compliance}
+
+\begin{itemize}
+    \item FAISS vector store + HuggingFace all-MiniLM-L6-v2 + top-k similarity retrieval --- RAG implementation complete
+    \item Groq API (LLaMA 3.3 70B) for per-customer retention reasoning + structured JSON generation --- LLM-based reasoning
+    \item LangGraph StatefulGraph with 5 nodes: analyze\_risk $\rightarrow$ retrieve\_rag $\rightarrow$ generate\_recommendations $\rightarrow$ structured\_report $\rightarrow$ add\_disclaimer --- Agentic AI
+    \item Groq selected for low-latency free-tier inference; FAISS for scalable in-memory vector search; LangGraph for stateful multi-step orchestration --- Design choices justified
+    \item Ethical AI disclaimer node appended to every agent run; business disclaimer rendered in UI --- Responsible AI compliance
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                  12. LIMITATIONS & FUTURE WORK
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{limitations}{Limitations \& Future Work}
+
+\subsection{Current Limitations}
+
+\begin{itemize}
+    \item \textbf{Knowledge base is a static text corpus} --- requires code update and re-indexing to add new retention strategies
+    \item \textbf{LLM outputs are non-deterministic at temperature 0.5} --- same customer profile may receive slightly different recommendations across runs
+    \item \textbf{FAISS index is in-memory only} --- does not persist across Hugging Face Space restarts; rebuilt via \texttt{@st.cache\_resource} on each cold start
+    \item \textbf{No fine-tuned retention LLM} --- reasoning depends entirely on LLaMA 3.3 70B's pretrained knowledge, supplemented by retrieved context
+    \item \textbf{ML model trained on a synthetic dataset} --- real-world performance on production data would require retraining on actual business data
+    \item \textbf{Slider ranges in the UI exceed training data ranges} (e.g., Total Spend up to \$100K vs training max of \$1,000) --- extreme input values may produce less reliable predictions
+    \item \textbf{Single-language support} --- system currently handles English input only
+\end{itemize}
+
+\subsection{Planned Future Enhancements}
+
+\begin{itemize}
+    \item \textbf{Customer segmentation} --- cluster customers by churn risk profile for bulk retention campaign generation
+    \item \textbf{Persistent vector store} --- migrate FAISS to ChromaDB or Pinecone for durable, queryable knowledge base
+    \item \textbf{Multi-customer batch analysis} --- process CSV uploads and generate retention reports for all at-risk customers
+    \item \textbf{Fine-tuned retention LLM} --- train or fine-tune on domain-specific customer success datasets
+    \item \textbf{A/B testing framework} --- track which retention strategies actually reduce churn for model improvement
+    \item \textbf{Confidence scoring} --- quantified uncertainty estimates per prediction for risk-based escalation thresholds
+    \item \textbf{Integration hooks} --- REST API endpoints for CRM system integration (Salesforce, HubSpot)
+\end{itemize}
+
+% ══════════════════════════════════════════════════════════════════════════
+%                         13. CONCLUSION
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{conclusion}{Conclusion}
+
+This report presents the complete Milestone 2 implementation of an Intelligent Customer Churn Prediction \& Agentic Retention Strategy system --- a fully agentic AI application that autonomously analyzes customer risk, retrieves domain-specific best practices, reasons about intervention strategies, and produces structured retention reports with ethical compliance built in.
+
+The system represents a significant advancement over the Milestone 1 classical ML baseline. Where Milestone 1 could predict churn probability with 83\% accuracy (Logistic Regression) or 96\% (Decision Tree) but offered no actionable guidance, Milestone 2 provides grounded, explainable, and autonomously generated retention action plans --- capabilities that align directly with real-world customer success requirements.
+
+The combination of FAISS-powered semantic retrieval, Groq's fast LLM inference, and LangGraph's stateful 5-node agent workflow produces a system that is technically robust, deployment-ready, and directly aligned with the GenAI and Agentic AI evaluation criteria. The live deployment on Hugging Face Spaces as the ChurnGuard AI platform demonstrates production-readiness and accessibility to real users.
+
+% ══════════════════════════════════════════════════════════════════════════
+%                         14. REFERENCES
+% ══════════════════════════════════════════════════════════════════════════
+\numberedsection{references}{References}
+
+\begin{itemize}
+    \item Lewis, P., et al. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. NeurIPS 2020.
+    \item LangChain \& LangGraph Documentation. (2024). \url{https://python.langchain.com/docs/langgraph}
+    \item Groq API Documentation. (2024). \url{https://console.groq.com/docs}
+    \item Johnson, J., et al. (2019). Billion-scale similarity search with GPUs (FAISS). IEEE Transactions on Big Data.
+    \item Reimers, N., \& Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. EMNLP 2019.
+    \item Pedregosa, F., et al. (2011). Scikit-learn: Machine Learning in Python. JMLR, 12, 2825-2830.
+    \item Hugging Face Spaces Documentation. (2024). \url{https://huggingface.co/docs/hub/spaces}
+    \item Streamlit Documentation. (2024). \url{https://docs.streamlit.io}
+\end{itemize}
+
+\end{document}
